@@ -1,0 +1,2291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Reel Curator</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0a0b;
+            --bg-card: #141416;
+            --bg-elevated: #1c1c1f;
+            --text-primary: #fafafa;
+            --text-secondary: #8a8a8e;
+            --accent-like: #22c55e;
+            --accent-skip: #ef4444;
+            --accent-glow: rgba(34, 197, 94, 0.15);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-subtle);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            margin-bottom: 20px;
+        }
+
+        .sidebar-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header p {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .session-list {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .session-item {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+
+        .session-item:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+        }
+
+        .session-item.active {
+            border-color: var(--accent-like);
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .session-item-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .session-number {
+            width: 28px;
+            height: 28px;
+            background: var(--bg-deep);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .session-name {
+            padding: 4px 10px;
+            background: var(--bg-deep);
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .session-name:hover {
+            background: var(--bg-elevated);
+        }
+
+        .session-rename-input {
+            padding: 4px 10px;
+            background: var(--bg-deep);
+            border: 1px solid var(--accent-like);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            width: 120px;
+            outline: none;
+        }
+
+        .session-info {
+            flex: 1;
+        }
+
+        .session-info .count {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .session-info .date {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .session-preview {
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-deep);
+        }
+
+        .session-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .session-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .session-action-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .session-action-btn:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: var(--bg-elevated);
+        }
+
+        .session-action-btn.download:hover {
+            border-color: var(--accent-like);
+            color: var(--accent-like);
+        }
+
+        .session-action-btn.delete:hover {
+            border-color: var(--accent-skip);
+            color: var(--accent-skip);
+        }
+
+        .no-sessions {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app {
+            max-width: 480px;
+            width: 100%;
+            padding: 24px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Mobile: hide sidebar by default, show toggle */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -300px;
+                top: 0;
+                height: 100vh;
+                z-index: 100;
+                transition: left 0.3s ease;
+            }
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 99;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.3s;
+            }
+
+            .sidebar-overlay.open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .mobile-menu-btn {
+                display: flex;
+            }
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            width: 48px;
+            height: 48px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 98;
+            font-size: 1.2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Input View */
+        .input-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .url-input {
+            width: 100%;
+            min-height: 200px;
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            color: var(--text-primary);
+            font-family: 'DM Sans', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
+        }
+
+        .url-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .process-btn {
+            margin-top: 20px;
+            padding: 18px 32px;
+            background: var(--text-primary);
+            color: var(--bg-deep);
+            border: none;
+            border-radius: 12px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+        }
+
+        .process-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .process-btn:active {
+            transform: translateY(0);
+        }
+
+        .process-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Processing View */
+        .processing-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--text-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 24px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-text {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .progress-sub {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Swipe View */
+        .swipe-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .counter {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+        }
+
+        .card-container {
+            flex: 1;
+            position: relative;
+            perspective: 1000px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 80px;
+        }
+
+        .card {
+            position: relative;
+            background: var(--bg-card);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            transition: box-shadow 0.3s;
+        }
+
+        .card:active {
+            cursor: grabbing;
+        }
+
+        .card img {
+            display: block;
+            max-height: 68vh;
+            width: auto;
+            height: auto;
+            pointer-events: none;
+        }
+
+        .card-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .card-overlay.like {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), transparent);
+        }
+
+        .card-overlay.skip {
+            background: linear-gradient(225deg, rgba(239, 68, 68, 0.3), transparent);
+        }
+
+        .card-overlay-icon {
+            font-size: 4rem;
+            font-weight: 700;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-overlay.like .card-overlay-icon {
+            color: var(--accent-like);
+        }
+
+        .card-overlay.skip .card-overlay-icon {
+            color: var(--accent-skip);
+        }
+
+        /* Action buttons */
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 24px;
+            padding-bottom: 24px;
+        }
+
+        .action-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s, background 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .action-btn.skip:hover {
+            border-color: var(--accent-skip);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .action-btn.like:hover {
+            border-color: var(--accent-like);
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .action-btn.skip.active {
+            border-color: var(--accent-skip);
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-skip);
+        }
+
+        .action-btn.like.active {
+            border-color: var(--accent-like);
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-like);
+        }
+
+        /* Swipe header with stats */
+        .swipe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .swipe-header .counter {
+            margin-bottom: 0;
+        }
+
+        .swipe-header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .swipe-stats {
+            display: flex;
+            gap: 12px;
+        }
+
+        .swipe-stats .stat {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: var(--bg-elevated);
+        }
+
+        .swipe-stats .stat.liked {
+            color: var(--accent-like);
+        }
+
+        .swipe-stats .stat.undecided {
+            color: var(--text-secondary);
+        }
+
+        /* Navigation buttons */
+        .nav-btn {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .card-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .nav-btn.prev {
+            position: absolute;
+            left: -60px;
+        }
+
+        .nav-btn.next {
+            position: absolute;
+            right: -60px;
+        }
+
+        /* Status badge on card */
+        .status-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 600;
+            z-index: 5;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-badge.liked {
+            background: var(--accent-like);
+            color: white;
+        }
+
+        .status-badge.skipped {
+            background: var(--accent-skip);
+            color: white;
+        }
+
+        /* Finish button */
+        .finish-btn {
+            padding: 8px 16px;
+            background: var(--accent-like);
+            color: var(--bg-deep);
+            border: none;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .finish-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        /* Complete View */
+        .complete-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .complete-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+        }
+
+        .complete-view h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            margin-bottom: 12px;
+        }
+
+        .complete-view p {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .export-btn {
+            padding: 18px 48px;
+            background: var(--accent-like);
+            color: var(--bg-deep);
+            border: none;
+            border-radius: 12px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .restart-btn {
+            margin-top: 16px;
+            padding: 12px 24px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .restart-btn:hover {
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Error state */
+        .error-list {
+            margin-top: 16px;
+            padding: 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: var(--accent-skip);
+        }
+
+        .error-list summary {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .error-list ul {
+            margin-top: 12px;
+            padding-left: 20px;
+        }
+
+        .error-list li {
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        /* Cancel button */
+        .cancel-btn {
+            margin-top: 24px;
+            padding: 12px 24px;
+            background: transparent;
+            color: var(--accent-skip);
+            border: 1px solid var(--accent-skip);
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .cancel-btn:hover {
+            background: var(--accent-skip);
+            color: white;
+        }
+
+        /* Keyboard hints */
+        .keyboard-hints {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 12px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .keyboard-hints kbd {
+            padding: 4px 8px;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            font-family: 'DM Sans', monospace;
+        }
+
+        /* No frames state */
+        .no-frames {
+            text-align: center;
+            padding: 48px 24px;
+        }
+
+        .no-frames h2 {
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 12px;
+        }
+
+        .no-frames p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        /* Gallery View */
+        .gallery-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            width: 100%;
+        }
+
+        .gallery-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .gallery-back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .gallery-back-btn:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: var(--bg-card);
+        }
+
+        .gallery-title {
+            flex: 1;
+        }
+
+        .gallery-title h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            margin-bottom: 4px;
+        }
+
+        .gallery-title p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .gallery-download-btn {
+            padding: 10px 20px;
+            background: var(--accent-like);
+            color: var(--bg-deep);
+            border: none;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .gallery-download-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            padding-bottom: 24px;
+        }
+
+        .gallery-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-card);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.02);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gallery-item-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.6), transparent 50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            padding: 8px;
+        }
+
+        .gallery-item:hover .gallery-item-overlay {
+            opacity: 1;
+        }
+
+        .gallery-item-delete {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.15s;
+        }
+
+        .gallery-item-delete:hover {
+            background: var(--accent-skip);
+            transform: scale(1.1);
+        }
+
+        /* Lightbox Modal */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .lightbox-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lightbox-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .lightbox-nav:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lightbox-nav.prev {
+            left: 24px;
+        }
+
+        .lightbox-nav.next {
+            right: 24px;
+        }
+
+        .lightbox-counter {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+
+        .lightbox-actions {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .lightbox-action-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .lightbox-action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lightbox-action-btn.delete:hover {
+            border-color: var(--accent-skip);
+            color: var(--accent-skip);
+        }
+
+        /* Confirmation Modal */
+        .confirm-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .confirm-modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .confirm-modal-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .confirm-modal-content h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .confirm-modal-content p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .confirm-modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .confirm-modal-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+
+        .confirm-modal-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .confirm-modal-btn.cancel {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+        }
+
+        .confirm-modal-btn.confirm {
+            background: var(--accent-skip);
+            border: none;
+            color: white;
+        }
+
+        /* Wider main content for gallery */
+        .main-content.gallery-mode {
+            max-width: none;
+        }
+
+        .main-content.gallery-mode .app {
+            max-width: 1200px;
+        }
+
+        /* Wider main content for swipe view */
+        .main-content.swipe-mode .app {
+            max-width: none;
+            width: 100%;
+        }
+
+        /* Settings Button */
+        .settings-btn {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, color 0.2s, background 0.2s;
+            z-index: 50;
+        }
+
+        .settings-btn:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+            background: var(--bg-card);
+        }
+
+        .settings-btn.active {
+            border-color: var(--accent-like);
+            color: var(--accent-like);
+        }
+
+        /* Settings Modal */
+        .settings-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 250;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .settings-modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        .settings-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .settings-modal-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+        }
+
+        .settings-close-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .settings-close-btn:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        .settings-section {
+            margin-bottom: 24px;
+        }
+
+        .settings-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .settings-section h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .settings-section p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .browser-select {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8a8e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            transition: border-color 0.2s;
+        }
+
+        .browser-select:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .browser-select:focus {
+            outline: none;
+            border-color: var(--accent-like);
+        }
+
+        .browser-select option {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .settings-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            background: var(--bg-elevated);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .settings-status.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent-like);
+        }
+
+        .settings-status.warning {
+            background: rgba(251, 191, 36, 0.1);
+            color: #fbbf24;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.active {
+            background: var(--accent-like);
+        }
+
+        .status-dot.inactive {
+            background: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // API base URL
+        const API = '';
+
+        function App() {
+            const [view, setView] = useState('input'); // input, processing, swipe, complete
+            const [urls, setUrls] = useState('');
+            const [sessionId, setSessionId] = useState(null);
+            const [frames, setFrames] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [likedCount, setLikedCount] = useState(0);
+            const [decisions, setDecisions] = useState({}); // {frameIndex: 'liked' | 'skipped'}
+            const [processStatus, setProcessStatus] = useState({ processed: 0, total: 0 });
+            const [errors, setErrors] = useState([]);
+            const [savedSessions, setSavedSessions] = useState([]);
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            const [gallerySession, setGallerySession] = useState(null);
+            const [galleryPhotos, setGalleryPhotos] = useState([]);
+            const [lightboxIndex, setLightboxIndex] = useState(null);
+            const [deleteConfirm, setDeleteConfirm] = useState(null);
+            const [settingsOpen, setSettingsOpen] = useState(false);
+            const [browserSetting, setBrowserSetting] = useState(null);
+            const [finishConfirm, setFinishConfirm] = useState(false);
+            const [renamingSession, setRenamingSession] = useState(null); // {id, name}
+
+            // Fetch browser setting on mount
+            useEffect(() => {
+                fetch(`${API}/api/settings/browser`)
+                    .then(res => res.json())
+                    .then(data => setBrowserSetting(data.browser))
+                    .catch(err => console.error('Failed to load settings:', err));
+            }, []);
+
+            // Update browser setting
+            const handleBrowserChange = async (browser) => {
+                try {
+                    const res = await fetch(`${API}/api/settings/browser`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ browser: browser || null })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        setBrowserSetting(data.browser);
+                    }
+                } catch (err) {
+                    console.error('Failed to update browser setting:', err);
+                }
+            };
+
+            // Fetch saved sessions on mount and after completing a session
+            const fetchSessions = async () => {
+                try {
+                    const res = await fetch(`${API}/api/sessions`);
+                    const data = await res.json();
+                    setSavedSessions(data.sessions || []);
+                } catch (err) {
+                    console.error('Failed to fetch sessions:', err);
+                }
+            };
+
+            useEffect(() => {
+                fetchSessions();
+            }, []);
+
+            // Refresh sessions when completing a swipe session
+            useEffect(() => {
+                if (view === 'complete' && likedCount > 0) {
+                    fetchSessions();
+                }
+            }, [view, likedCount]);
+
+            // Start processing
+            const handleProcess = async () => {
+                const urlList = urls.split('\n').filter(u => u.trim());
+                if (urlList.length === 0) return;
+
+                setView('processing');
+                setProcessStatus({ processed: 0, total: urlList.length });
+
+                try {
+                    const res = await fetch(`${API}/api/process`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urls: urlList })
+                    });
+                    const data = await res.json();
+                    setSessionId(data.session_id);
+                } catch (err) {
+                    console.error('Failed to start processing:', err);
+                    setView('input');
+                }
+            };
+
+            // Cancel processing
+            const handleCancel = async () => {
+                if (!sessionId) return;
+
+                try {
+                    await fetch(`${API}/api/cancel/${sessionId}`, { method: 'POST' });
+                } catch (err) {
+                    console.error('Failed to cancel:', err);
+                }
+            };
+
+            // Poll for status
+            useEffect(() => {
+                if (!sessionId || view !== 'processing') return;
+
+                const poll = setInterval(async () => {
+                    try {
+                        const res = await fetch(`${API}/api/status/${sessionId}`);
+                        const data = await res.json();
+                        
+                        setProcessStatus({ processed: data.processed, total: data.total });
+                        setErrors(data.errors || []);
+
+                        if (data.status === 'complete' || data.status === 'cancelled') {
+                            clearInterval(poll);
+                            if (data.frames && data.frames.length > 0) {
+                                setFrames(data.frames);
+                                setView('swipe');
+                            } else {
+                                // Go back to input if cancelled with no frames
+                                setView(data.status === 'cancelled' ? 'input' : 'complete');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Polling error:', err);
+                    }
+                }, 1000);
+
+                return () => clearInterval(poll);
+            }, [sessionId, view]);
+
+            // Handle like
+            const handleLike = async () => {
+                if (currentIndex >= frames.length) return;
+
+                const filename = frames[currentIndex];
+                const wasLiked = decisions[currentIndex] === 'liked';
+                const wasUndecided = !decisions[currentIndex];
+
+                if (!wasLiked) {
+                    // Like the frame
+                    await fetch(`${API}/api/like`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId, filename })
+                    });
+
+                    setDecisions(prev => ({ ...prev, [currentIndex]: 'liked' }));
+                    setLikedCount(prev => prev + 1);
+
+                    // Only auto-advance if this was the first decision on this frame
+                    if (wasUndecided) {
+                        goToNextUndecided();
+                    }
+                }
+            };
+
+            // Handle skip
+            const handleSkip = () => {
+                if (currentIndex >= frames.length) return;
+
+                const wasSkipped = decisions[currentIndex] === 'skipped';
+                const wasUndecided = !decisions[currentIndex];
+
+                if (!wasSkipped) {
+                    // If it was previously liked, unlike it
+                    const wasLiked = decisions[currentIndex] === 'liked';
+                    if (wasLiked) {
+                        // Remove from liked (delete the file)
+                        const filename = frames[currentIndex];
+                        fetch(`${API}/api/sessions/${sessionId}/photo/${filename}`, { method: 'DELETE' })
+                            .catch(err => console.error('Failed to unlike:', err));
+                        setLikedCount(prev => Math.max(0, prev - 1));
+                    }
+
+                    setDecisions(prev => ({ ...prev, [currentIndex]: 'skipped' }));
+
+                    // Only auto-advance if this was the first decision on this frame
+                    if (wasUndecided) {
+                        goToNextUndecided();
+                    }
+                }
+            };
+
+            // Go to next undecided frame, or next frame if all decided
+            const goToNextUndecided = () => {
+                // Look for next undecided frame
+                for (let i = currentIndex + 1; i < frames.length; i++) {
+                    if (!decisions[i]) {
+                        setCurrentIndex(i);
+                        return;
+                    }
+                }
+                // If no undecided ahead, just go to next (or stay at end)
+                if (currentIndex < frames.length - 1) {
+                    setCurrentIndex(prev => prev + 1);
+                }
+            };
+
+            // Navigate to previous frame
+            const goToPrev = () => {
+                if (currentIndex > 0) {
+                    setCurrentIndex(prev => prev - 1);
+                }
+            };
+
+            // Navigate to next frame
+            const goToNext = () => {
+                if (currentIndex < frames.length - 1) {
+                    setCurrentIndex(prev => prev + 1);
+                }
+            };
+
+            // Finish reviewing - show confirmation first
+            const handleFinish = () => {
+                setFinishConfirm(true);
+            };
+
+            // Actually complete the review
+            const confirmFinish = () => {
+                setFinishConfirm(false);
+                setView('complete');
+            };
+
+            // Export liked frames
+            const handleExport = () => {
+                window.location.href = `${API}/api/export/${sessionId}`;
+            };
+
+            // Restart
+            const handleRestart = async () => {
+                if (sessionId) {
+                    await fetch(`${API}/api/cleanup/${sessionId}`, { method: 'POST' });
+                }
+                setView('input');
+                setUrls('');
+                setSessionId(null);
+                setFrames([]);
+                setCurrentIndex(0);
+                setLikedCount(0);
+                setDecisions({});
+                setErrors([]);
+            };
+
+            // Keyboard shortcuts
+            useEffect(() => {
+                if (view !== 'swipe') return;
+
+                const handleKeyDown = (e) => {
+                    if (e.key === 'ArrowLeft') goToPrev();
+                    if (e.key === 'ArrowRight') goToNext();
+                    if (e.key === 'ArrowUp') handleLike();
+                    if (e.key === 'ArrowDown') handleSkip();
+                    if (e.key === 'Enter') handleFinish();
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [view, currentIndex, frames.length, decisions]);
+
+            // Download a saved session
+            const handleDownloadSession = (sid) => {
+                window.location.href = `${API}/api/export/${sid}`;
+            };
+
+            // Delete a saved session
+            const handleDeleteSession = async (sid) => {
+                if (!confirm('Delete this collection? This cannot be undone.')) return;
+
+                try {
+                    await fetch(`${API}/api/sessions/${sid}`, { method: 'DELETE' });
+                    fetchSessions();
+                } catch (err) {
+                    console.error('Failed to delete session:', err);
+                }
+            };
+
+            // Rename a session
+            const handleRenameSession = async (sid, newName) => {
+                try {
+                    await fetch(`${API}/api/sessions/${sid}/rename`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName })
+                    });
+                    fetchSessions();
+                    setRenamingSession(null);
+                } catch (err) {
+                    console.error('Failed to rename session:', err);
+                }
+            };
+
+            // Format date for display
+            const formatDate = (timestamp) => {
+                const date = new Date(timestamp * 1000);
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+            };
+
+            // Open gallery for a session
+            const openGallery = async (session) => {
+                try {
+                    const res = await fetch(`${API}/api/sessions/${session.session_id}/photos`);
+                    const data = await res.json();
+                    setGalleryPhotos(data.photos || []);
+                    setGallerySession(session);
+                    setSidebarOpen(false);
+                } catch (err) {
+                    console.error('Failed to load gallery:', err);
+                }
+            };
+
+            // Close gallery
+            const closeGallery = () => {
+                setGallerySession(null);
+                setGalleryPhotos([]);
+                setLightboxIndex(null);
+            };
+
+            // Delete a photo with confirmation
+            const handleDeletePhoto = (photo) => {
+                setDeleteConfirm({ type: 'photo', photo, sessionId: gallerySession.session_id });
+            };
+
+            // Confirm delete photo
+            const confirmDeletePhoto = async () => {
+                if (!deleteConfirm) return;
+
+                try {
+                    const res = await fetch(
+                        `${API}/api/sessions/${deleteConfirm.sessionId}/photo/${deleteConfirm.photo}`,
+                        { method: 'DELETE' }
+                    );
+                    const data = await res.json();
+
+                    if (data.remaining === 0) {
+                        // Session is now empty, close gallery
+                        closeGallery();
+                        fetchSessions();
+                    } else {
+                        // Update photos list
+                        setGalleryPhotos(prev => prev.filter(p => p !== deleteConfirm.photo));
+                        // Update session count in sidebar
+                        fetchSessions();
+                        // Close lightbox if open
+                        if (lightboxIndex !== null) {
+                            if (galleryPhotos.length <= 1) {
+                                setLightboxIndex(null);
+                            } else if (lightboxIndex >= galleryPhotos.length - 1) {
+                                setLightboxIndex(lightboxIndex - 1);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to delete photo:', err);
+                }
+
+                setDeleteConfirm(null);
+            };
+
+            // Lightbox navigation
+            const lightboxPrev = () => {
+                setLightboxIndex(prev => (prev > 0 ? prev - 1 : galleryPhotos.length - 1));
+            };
+
+            const lightboxNext = () => {
+                setLightboxIndex(prev => (prev < galleryPhotos.length - 1 ? prev + 1 : 0));
+            };
+
+            // Keyboard navigation for lightbox
+            useEffect(() => {
+                if (lightboxIndex === null) return;
+
+                const handleKeyDown = (e) => {
+                    if (e.key === 'ArrowLeft') lightboxPrev();
+                    if (e.key === 'ArrowRight') lightboxNext();
+                    if (e.key === 'Escape') setLightboxIndex(null);
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [lightboxIndex, galleryPhotos.length]);
+
+            return (
+                <div className="app-container">
+                    {/* Mobile overlay */}
+                    <div
+                        className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+                        onClick={() => setSidebarOpen(false)}
+                    />
+
+                    {/* Sidebar */}
+                    <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+                        <div className="sidebar-header">
+                            <h2>Saved Collections</h2>
+                            <p>Your curated photo sets</p>
+                        </div>
+
+                        <div className="session-list">
+                            {savedSessions.length === 0 ? (
+                                <div className="no-sessions">
+                                    No saved collections yet.<br />
+                                    Like some frames to create one!
+                                </div>
+                            ) : (
+                                savedSessions.map((session) => (
+                                    <div
+                                        key={session.session_id}
+                                        className={`session-item ${gallerySession?.session_id === session.session_id ? 'active' : ''}`}
+                                        onClick={() => openGallery(session)}
+                                    >
+                                        <div className="session-item-header">
+                                            {renamingSession?.id === session.session_id ? (
+                                                <input
+                                                    type="text"
+                                                    className="session-rename-input"
+                                                    value={renamingSession.name}
+                                                    onChange={(e) => setRenamingSession({ ...renamingSession, name: e.target.value })}
+                                                    onKeyDown={(e) => {
+                                                        e.stopPropagation();
+                                                        if (e.key === 'Enter') {
+                                                            const nameToSave = e.target.value;
+                                                            setRenamingSession(null);
+                                                            handleRenameSession(session.session_id, nameToSave);
+                                                        }
+                                                        if (e.key === 'Escape') {
+                                                            setRenamingSession(null);
+                                                        }
+                                                    }}
+                                                    onBlur={() => setRenamingSession(null)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    autoFocus
+                                                    placeholder="Collection name..."
+                                                />
+                                            ) : (
+                                                <div
+                                                    className="session-name"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setRenamingSession({ id: session.session_id, name: session.name || '' });
+                                                    }}
+                                                    title="Click to rename"
+                                                >
+                                                    {session.name || `#${session.number}`}
+                                                </div>
+                                            )}
+                                            <div className="session-info">
+                                                <div className="count">
+                                                    {session.photo_count} photo{session.photo_count !== 1 ? 's' : ''}
+                                                </div>
+                                                <div className="date">{formatDate(session.created_at)}</div>
+                                            </div>
+                                        </div>
+                                        {session.preview && (
+                                            <div className="session-preview">
+                                                <img
+                                                    src={`${API}/api/sessions/${session.session_id}/photo/${session.preview}`}
+                                                    alt="Preview"
+                                                />
+                                            </div>
+                                        )}
+                                        <div className="session-actions">
+                                            <button
+                                                className="session-action-btn download"
+                                                onClick={(e) => { e.stopPropagation(); handleDownloadSession(session.session_id); }}
+                                            >
+                                                Download
+                                            </button>
+                                            <button
+                                                className="session-action-btn delete"
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.session_id); }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </aside>
+
+                    {/* Mobile menu button */}
+                    <button
+                        className="mobile-menu-btn"
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                    >
+                        {sidebarOpen ? '✕' : '☰'}
+                    </button>
+
+                    {/* Main content */}
+                    <main className={`main-content ${gallerySession ? 'gallery-mode' : ''} ${view === 'swipe' ? 'swipe-mode' : ''}`}>
+                        <div className="app">
+                            {!gallerySession && (
+                                <header className="header">
+                                    <h1>Reel Curator</h1>
+                                    <p>Extract & curate frames from Instagram reels</p>
+                                </header>
+                            )}
+
+                            {gallerySession ? (
+                                <div className="gallery-view">
+                                    <div className="gallery-header">
+                                        <button className="gallery-back-btn" onClick={closeGallery}>
+                                            ←
+                                        </button>
+                                        <div className="gallery-title">
+                                            <h2>{gallerySession.name || `Collection #${gallerySession.number}`}</h2>
+                                            <p>{galleryPhotos.length} photo{galleryPhotos.length !== 1 ? 's' : ''}</p>
+                                        </div>
+                                        <button
+                                            className="gallery-download-btn"
+                                            onClick={() => handleDownloadSession(gallerySession.session_id)}
+                                        >
+                                            Download All
+                                        </button>
+                                    </div>
+
+                                    <div className="gallery-grid">
+                                        {galleryPhotos.map((photo, index) => (
+                                            <div
+                                                key={photo}
+                                                className="gallery-item"
+                                                onClick={() => setLightboxIndex(index)}
+                                            >
+                                                <img
+                                                    src={`${API}/api/sessions/${gallerySession.session_id}/photo/${photo}`}
+                                                    alt={`Photo ${index + 1}`}
+                                                />
+                                                <div className="gallery-item-overlay">
+                                                    <button
+                                                        className="gallery-item-delete"
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {view === 'input' && (
+                                        <div className="input-view">
+                                            <textarea
+                                                className="url-input"
+                                                placeholder="Paste Instagram reel URLs here, one per line..."
+                                                value={urls}
+                                                onChange={(e) => setUrls(e.target.value)}
+                                            />
+                                            <button
+                                                className="process-btn"
+                                                onClick={handleProcess}
+                                                disabled={!urls.trim()}
+                                            >
+                                                Extract Frames
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {view === 'processing' && (
+                                        <div className="processing-view">
+                                            <div className="spinner" />
+                                            <p className="progress-text">
+                                                Processing {processStatus.processed} of {processStatus.total} reels...
+                                            </p>
+                                            <p className="progress-sub">
+                                                Detecting scene changes & extracting key frames
+                                            </p>
+                                            {errors.length > 0 && (
+                                                <details className="error-list">
+                                                    <summary>{errors.length} error(s)</summary>
+                                                    <ul>
+                                                        {errors.map((e, i) => <li key={i}>{e}</li>)}
+                                                    </ul>
+                                                </details>
+                                            )}
+                                            <button className="cancel-btn" onClick={handleCancel}>
+                                                Stop Processing
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {view === 'swipe' && frames.length > 0 && (
+                                        <SwipeView
+                                            sessionId={sessionId}
+                                            frames={frames}
+                                            currentIndex={currentIndex}
+                                            decisions={decisions}
+                                            likedCount={likedCount}
+                                            onLike={handleLike}
+                                            onSkip={handleSkip}
+                                            onPrev={goToPrev}
+                                            onNext={goToNext}
+                                            onFinish={handleFinish}
+                                        />
+                                    )}
+
+                                    {view === 'complete' && (
+                                        <div className="complete-view">
+                                            <div className="complete-icon">✨</div>
+                                            <h2>All Done!</h2>
+                                            <p>
+                                                {likedCount > 0
+                                                    ? `You saved ${likedCount} frame${likedCount === 1 ? '' : 's'}`
+                                                    : 'No frames were saved'}
+                                            </p>
+                                            {likedCount > 0 && (
+                                                <button className="export-btn" onClick={handleExport}>
+                                                    Download Collection
+                                                </button>
+                                            )}
+                                            <button className="restart-btn" onClick={handleRestart}>
+                                                Start Over
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Lightbox Modal */}
+                    {lightboxIndex !== null && galleryPhotos[lightboxIndex] && (
+                        <div className="lightbox" onClick={() => setLightboxIndex(null)}>
+                            <button className="lightbox-close" onClick={() => setLightboxIndex(null)}>
+                                ✕
+                            </button>
+
+                            {galleryPhotos.length > 1 && (
+                                <button
+                                    className="lightbox-nav prev"
+                                    onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}
+                                >
+                                    ←
+                                </button>
+                            )}
+
+                            <img
+                                className="lightbox-image"
+                                src={`${API}/api/sessions/${gallerySession.session_id}/photo/${galleryPhotos[lightboxIndex]}`}
+                                alt={`Photo ${lightboxIndex + 1}`}
+                                onClick={(e) => e.stopPropagation()}
+                            />
+
+                            {galleryPhotos.length > 1 && (
+                                <button
+                                    className="lightbox-nav next"
+                                    onClick={(e) => { e.stopPropagation(); lightboxNext(); }}
+                                >
+                                    →
+                                </button>
+                            )}
+
+                            <div className="lightbox-counter">
+                                {lightboxIndex + 1} / {galleryPhotos.length}
+                            </div>
+
+                            <div className="lightbox-actions">
+                                <button
+                                    className="lightbox-action-btn delete"
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(galleryPhotos[lightboxIndex]); }}
+                                >
+                                    Delete Photo
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delete Confirmation Modal */}
+                    {deleteConfirm && (
+                        <div className="confirm-modal" onClick={() => setDeleteConfirm(null)}>
+                            <div className="confirm-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="confirm-modal-icon">🗑️</div>
+                                <h3>Delete Photo?</h3>
+                                <p>Are you sure you want to delete this photo? This action cannot be undone.</p>
+                                <div className="confirm-modal-actions">
+                                    <button
+                                        className="confirm-modal-btn cancel"
+                                        onClick={() => setDeleteConfirm(null)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="confirm-modal-btn confirm"
+                                        onClick={confirmDeletePhoto}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Finish Confirmation Modal */}
+                    {finishConfirm && (
+                        <div className="confirm-modal" onClick={() => setFinishConfirm(false)}>
+                            <div className="confirm-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="confirm-modal-icon">✨</div>
+                                <h3>Finish Reviewing?</h3>
+                                <p>
+                                    You've liked {likedCount} frame{likedCount !== 1 ? 's' : ''} out of {frames.length}.
+                                    {Object.keys(decisions).length < frames.length && (
+                                        <><br /><strong>{frames.length - Object.keys(decisions).length} frames haven't been reviewed yet.</strong></>
+                                    )}
+                                </p>
+                                <div className="confirm-modal-actions">
+                                    <button
+                                        className="confirm-modal-btn cancel"
+                                        onClick={() => setFinishConfirm(false)}
+                                    >
+                                        Keep Reviewing
+                                    </button>
+                                    <button
+                                        className="confirm-modal-btn confirm"
+                                        style={{background: 'var(--accent-like)'}}
+                                        onClick={confirmFinish}
+                                    >
+                                        I'm Done
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Settings Button */}
+                    <button
+                        className={`settings-btn ${browserSetting ? 'active' : ''}`}
+                        onClick={() => setSettingsOpen(true)}
+                        title="Settings"
+                    >
+                        ⚙
+                    </button>
+
+                    {/* Settings Modal */}
+                    {settingsOpen && (
+                        <div className="settings-modal" onClick={() => setSettingsOpen(false)}>
+                            <div className="settings-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="settings-modal-header">
+                                    <h2>Settings</h2>
+                                    <button
+                                        className="settings-close-btn"
+                                        onClick={() => setSettingsOpen(false)}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div className="settings-section">
+                                    <h3>Instagram Login</h3>
+                                    <p>
+                                        Some posts require being logged in to view. Select the browser where you're
+                                        logged into Instagram, and we'll use your session to access private posts.
+                                    </p>
+                                    <div style={{background: '#065f46', padding: '12px', borderRadius: '8px', marginBottom: '12px'}}>
+                                        <strong style={{color: '#34d399'}}>Recommended: Firefox</strong>
+                                        <p style={{margin: '4px 0 0 0', fontSize: '13px', color: '#a7f3d0'}}>
+                                            Firefox works reliably on Windows. Chrome/Edge have encryption issues that may prevent cookie access.
+                                        </p>
+                                    </div>
+                                    <select
+                                        className="browser-select"
+                                        value={browserSetting || ''}
+                                        onChange={(e) => handleBrowserChange(e.target.value)}
+                                    >
+                                        <option value="">No browser (public posts only)</option>
+                                        <option value="firefox">Firefox (recommended)</option>
+                                        <option value="chrome">Chrome (may have issues on Windows)</option>
+                                        <option value="edge">Edge (may have issues on Windows)</option>
+                                        <option value="brave">Brave (may have issues on Windows)</option>
+                                        <option value="opera">Opera</option>
+                                        <option value="chromium">Chromium</option>
+                                        <option value="safari">Safari (macOS only)</option>
+                                    </select>
+                                    {browserSetting && browserSetting !== 'firefox' && browserSetting !== 'safari' && (
+                                        <p style={{marginTop: '12px', color: '#fbbf24'}}>
+                                            Warning: {browserSetting.charAt(0).toUpperCase() + browserSetting.slice(1)} uses Windows encryption (DPAPI)
+                                            which may prevent cookie access. If you see errors, please use Firefox instead.
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="settings-section">
+                                    <div className={`settings-status ${browserSetting ? 'success' : 'warning'}`}>
+                                        <span className={`status-dot ${browserSetting ? 'active' : 'inactive'}`}></span>
+                                        {browserSetting
+                                            ? `Using ${browserSetting.charAt(0).toUpperCase() + browserSetting.slice(1)} cookies`
+                                            : 'No browser selected - private posts may fail'
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function SwipeView({ sessionId, frames, currentIndex, decisions, likedCount, onLike, onSkip, onPrev, onNext, onFinish }) {
+            const cardRef = useRef(null);
+            const [dragState, setDragState] = useState({ x: 0, y: 0, dragging: false });
+            const [overlayOpacity, setOverlayOpacity] = useState({ like: 0, skip: 0 });
+
+            const startPos = useRef({ x: 0, y: 0 });
+            const currentPos = useRef({ x: 0, y: 0 });
+
+            const handleStart = (e) => {
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                startPos.current = { x: clientX, y: clientY };
+                currentPos.current = { x: 0, y: 0 };
+                setDragState({ x: 0, y: 0, dragging: true });
+            };
+
+            const handleMove = (e) => {
+                if (!dragState.dragging) return;
+
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+                const dx = clientX - startPos.current.x;
+                const dy = clientY - startPos.current.y;
+
+                currentPos.current = { x: dx, y: dy };
+                setDragState({ x: dx, y: dy, dragging: true });
+
+                // Update overlay opacity based on drag direction
+                const threshold = 80;
+                const likeOpacity = Math.min(Math.max(dx / threshold, 0), 1);
+                const skipOpacity = Math.min(Math.max(-dx / threshold, 0), 1);
+                setOverlayOpacity({ like: likeOpacity, skip: skipOpacity });
+            };
+
+            const handleEnd = () => {
+                if (!dragState.dragging) return;
+
+                const threshold = 100;
+                const dx = currentPos.current.x;
+
+                if (dx > threshold) {
+                    // Liked
+                    onLike();
+                } else if (dx < -threshold) {
+                    // Skipped
+                    onSkip();
+                }
+
+                // Reset position
+                setDragState({ x: 0, y: 0, dragging: false });
+                setOverlayOpacity({ like: 0, skip: 0 });
+            };
+
+            const currentFrame = frames[currentIndex];
+            const currentDecision = decisions[currentIndex];
+            const rotation = dragState.x * 0.05;
+
+            // Count undecided frames
+            const undecidedCount = frames.length - Object.keys(decisions).length;
+
+            return (
+                <div className="swipe-view">
+                    <div className="swipe-header">
+                        <div className="counter">
+                            {currentIndex + 1} / {frames.length}
+                        </div>
+                        <div className="swipe-header-right">
+                            <div className="swipe-stats">
+                                <span className="stat liked">{likedCount} liked</span>
+                                <span className="stat undecided">{undecidedCount} left</span>
+                            </div>
+                            <button className="finish-btn" onClick={onFinish}>
+                                Done
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="card-container">
+                        <div className="card-wrapper">
+                            {/* Navigation buttons */}
+                            <button
+                                className="nav-btn prev"
+                                onClick={onPrev}
+                                disabled={currentIndex === 0}
+                            >
+                                <span>&#8592;</span>
+                            </button>
+
+                            <div
+                                ref={cardRef}
+                                className={`card ${currentDecision ? 'decided' : ''}`}
+                                style={{
+                                    transform: `translateX(${dragState.x}px) translateY(${dragState.y * 0.2}px) rotate(${rotation}deg)`,
+                                }}
+                                onMouseDown={handleStart}
+                                onMouseMove={handleMove}
+                                onMouseUp={handleEnd}
+                                onMouseLeave={handleEnd}
+                                onTouchStart={handleStart}
+                                onTouchMove={handleMove}
+                                onTouchEnd={handleEnd}
+                            >
+                                {/* Status badge */}
+                                {currentDecision && (
+                                    <div className={`status-badge ${currentDecision}`}>
+                                        {currentDecision === 'liked' ? '♥' : '✕'}
+                                    </div>
+                                )}
+
+                                <img
+                                    src={`${API}/api/frames/${sessionId}/${currentFrame}`}
+                                    alt={`Frame ${currentIndex + 1}`}
+                                    draggable={false}
+                                />
+                                <div
+                                    className="card-overlay like"
+                                    style={{ opacity: overlayOpacity.like }}
+                                >
+                                    <span className="card-overlay-icon">♥</span>
+                                </div>
+                                <div
+                                    className="card-overlay skip"
+                                    style={{ opacity: overlayOpacity.skip }}
+                                >
+                                    <span className="card-overlay-icon">✕</span>
+                                </div>
+                            </div>
+
+                            <button
+                                className="nav-btn next"
+                                onClick={onNext}
+                                disabled={currentIndex === frames.length - 1}
+                            >
+                                <span>&#8594;</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="actions">
+                        <button
+                            className={`action-btn skip ${currentDecision === 'skipped' ? 'active' : ''}`}
+                            onClick={onSkip}
+                        >
+                            ✕
+                        </button>
+                        <button
+                            className={`action-btn like ${currentDecision === 'liked' ? 'active' : ''}`}
+                            onClick={onLike}
+                        >
+                            ♥
+                        </button>
+                    </div>
+
+                    <div className="keyboard-hints">
+                        <span><kbd>←</kbd><kbd>→</kbd> Navigate</span>
+                        <span><kbd>↑</kbd> Like</span>
+                        <span><kbd>↓</kbd> Skip</span>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
