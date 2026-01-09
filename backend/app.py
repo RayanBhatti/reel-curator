@@ -59,25 +59,37 @@ _settings = load_settings()
 cookie_browser = _settings.get("browser")
 cookie_browser_lock = threading.Lock()
 
-# Session names storage
-NAMES_FILE = LIKED_DIR / "names.json"
+def generate_session_id():
+    """Generate a human-readable session ID based on timestamp."""
+    from datetime import datetime
+    return datetime.now().strftime("%b-%d_%H-%M-%S")
 
-def load_session_names():
-    """Load session names from file."""
-    if NAMES_FILE.exists():
-        try:
-            import json
-            with open(NAMES_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            pass
-    return {}
 
-def save_session_names(names):
-    """Save session names to file."""
-    import json
-    with open(NAMES_FILE, 'w') as f:
-        json.dump(names, f)
+def sanitize_folder_name(name: str) -> str:
+    """Sanitize a string to be safe for use as a folder name."""
+    import re
+    # Only remove characters that are invalid in Windows folder names: < > : " / \ | ? *
+    sanitized = re.sub(r'[<>:"/\\|?*]', '', name)
+    # Remove leading/trailing spaces and dots (Windows doesn't allow trailing dots/spaces)
+    sanitized = sanitized.strip(' .')
+    # Limit length
+    sanitized = sanitized[:50]
+    return sanitized or "Collection"
+
+
+def get_unique_folder_name(base_name: str, exclude_path: Path = None) -> str:
+    """Get a unique folder name in LIKED_DIR, appending number if needed."""
+    sanitized = sanitize_folder_name(base_name)
+    candidate = sanitized
+    counter = 2
+
+    while True:
+        candidate_path = LIKED_DIR / candidate
+        # If it doesn't exist, or it's the same as the path we're renaming from, it's valid
+        if not candidate_path.exists() or (exclude_path and candidate_path == exclude_path):
+            return candidate
+        candidate = f"{sanitized}_{counter}"
+        counter += 1
 
 
 def detect_scene_changes(video_path: Path, threshold: float = 30.0) -> list[int]:
@@ -434,17 +446,17 @@ def start_processing():
     """Start processing a list of reel URLs."""
     data = request.json
     urls = data.get("urls", [])
-    
+
     if not urls:
         return jsonify({"error": "No URLs provided"}), 400
-    
-    # Create session
-    session_id = str(uuid.uuid4())
-    
+
+    # Create session with readable timestamp-based ID
+    session_id = generate_session_id()
+
     # Start background processing
     executor = ThreadPoolExecutor(max_workers=1)
     executor.submit(process_urls, session_id, urls)
-    
+
     return jsonify({"session_id": session_id})
 
 
@@ -508,34 +520,37 @@ def like_frame():
     return jsonify({"error": "Frame not found"}), 404
 
 
-@app.route("/api/export/<session_id>")
+@app.route("/api/export/<path:session_id>")
 def export_liked(session_id: str):
     """Export liked frames as a zip file."""
     liked_session_dir = LIKED_DIR / session_id
-    
+
     if not liked_session_dir.exists():
         return jsonify({"error": "No liked frames"}), 404
-    
+
     files = list(liked_session_dir.glob("*.jpg"))
     if not files:
         return jsonify({"error": "No liked frames"}), 404
-    
-    # Create zip file
+
+    # Create zip file - use sanitized name for the zip
     zip_path = LIKED_DIR / f"{session_id}_export.zip"
-    
+
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
         for f in files:
             zf.write(f, f.name)
-    
+
+    # Use the session name for download filename
+    download_name = f"{session_id}.zip"
+
     return send_file(
         zip_path,
         mimetype='application/zip',
         as_attachment=True,
-        download_name='liked_frames.zip'
+        download_name=download_name
     )
 
 
-@app.route("/api/cleanup/<session_id>", methods=["POST"])
+@app.route("/api/cleanup/<path:session_id>", methods=["POST"])
 def cleanup_session(session_id: str):
     """Clean up session data."""
     session_dir = FRAMES_DIR / session_id
@@ -554,7 +569,6 @@ def cleanup_session(session_id: str):
 def list_sessions():
     """List all saved sessions with liked photos."""
     saved_sessions = []
-    session_names = load_session_names()
 
     if LIKED_DIR.exists():
         for session_dir in LIKED_DIR.iterdir():
@@ -565,27 +579,24 @@ def list_sessions():
                     oldest_photo = min(photos, key=lambda p: p.stat().st_ctime)
                     created_at = oldest_photo.stat().st_ctime
 
+                    # Folder name IS the display name
                     saved_sessions.append({
                         "session_id": session_dir.name,
                         "photo_count": len(photos),
                         "created_at": created_at,
                         "preview": photos[0].name if photos else None,
-                        "name": session_names.get(session_dir.name)
+                        "name": session_dir.name  # Folder name is the name
                     })
 
     # Sort by creation time, newest first
     saved_sessions.sort(key=lambda s: s["created_at"], reverse=True)
 
-    # Add session numbers (1 = newest)
-    for i, session in enumerate(saved_sessions):
-        session["number"] = i + 1
-
     return jsonify({"sessions": saved_sessions})
 
 
-@app.route("/api/sessions/<session_id>/rename", methods=["POST"])
+@app.route("/api/sessions/<path:session_id>/rename", methods=["POST"])
 def rename_session(session_id: str):
-    """Rename a saved session."""
+    """Rename a saved session by renaming its folder."""
     liked_session_dir = LIKED_DIR / session_id
 
     if not liked_session_dir.exists():
@@ -594,20 +605,32 @@ def rename_session(session_id: str):
     data = request.json
     new_name = data.get("name", "").strip()
 
-    session_names = load_session_names()
+    if not new_name:
+        return jsonify({"error": "Name cannot be empty"}), 400
 
-    if new_name:
-        session_names[session_id] = new_name
-    else:
-        # Remove name if empty (revert to number)
-        session_names.pop(session_id, None)
+    # Get unique folder name (handles duplicates)
+    new_folder_name = get_unique_folder_name(new_name, exclude_path=liked_session_dir)
+    new_path = LIKED_DIR / new_folder_name
 
-    save_session_names(session_names)
+    # If it's actually a different name, rename the folder
+    if new_path != liked_session_dir:
+        try:
+            liked_session_dir.rename(new_path)
+            # Also rename export zip if it exists
+            old_zip = LIKED_DIR / f"{session_id}_export.zip"
+            if old_zip.exists():
+                old_zip.rename(LIKED_DIR / f"{new_folder_name}_export.zip")
+        except Exception as e:
+            return jsonify({"error": f"Failed to rename: {str(e)}"}), 500
 
-    return jsonify({"success": True, "name": new_name if new_name else None})
+    return jsonify({
+        "success": True,
+        "name": new_folder_name,
+        "new_session_id": new_folder_name
+    })
 
 
-@app.route("/api/sessions/<session_id>/photos")
+@app.route("/api/sessions/<path:session_id>/photos")
 def get_session_photos(session_id: str):
     """Get list of photos in a saved session."""
     liked_session_dir = LIKED_DIR / session_id
@@ -619,14 +642,39 @@ def get_session_photos(session_id: str):
     return jsonify({"photos": photos})
 
 
-@app.route("/api/sessions/<session_id>/photo/<filename>")
+@app.route("/api/sessions/<path:session_id>/photo/<filename>")
 def get_session_photo(session_id: str, filename: str):
     """Serve a photo from a saved session."""
     liked_session_dir = LIKED_DIR / session_id
     return send_from_directory(liked_session_dir, filename)
 
 
-@app.route("/api/sessions/<session_id>", methods=["DELETE"])
+@app.route("/api/sessions/<path:session_id>/upload", methods=["POST"])
+def upload_edited_photo(session_id: str):
+    """Upload an edited photo to a session."""
+    liked_session_dir = LIKED_DIR / session_id
+
+    if not liked_session_dir.exists():
+        return jsonify({"error": "Session not found"}), 404
+
+    if 'image' not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+
+    image = request.files['image']
+
+    # Generate unique filename
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"edited_{timestamp}.jpg"
+    filepath = liked_session_dir / filename
+
+    # Save the image
+    image.save(filepath)
+
+    return jsonify({"success": True, "filename": filename})
+
+
+@app.route("/api/sessions/<path:session_id>", methods=["DELETE"])
 def delete_session(session_id: str):
     """Delete a saved session."""
     liked_session_dir = LIKED_DIR / session_id
@@ -640,7 +688,7 @@ def delete_session(session_id: str):
     return jsonify({"success": True})
 
 
-@app.route("/api/sessions/<session_id>/photo/<filename>", methods=["DELETE"])
+@app.route("/api/sessions/<path:session_id>/photo/<filename>", methods=["DELETE"])
 def delete_photo(session_id: str, filename: str):
     """Delete a single photo from a saved session."""
     liked_session_dir = LIKED_DIR / session_id
@@ -705,4 +753,4 @@ def serve_static(path):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True)

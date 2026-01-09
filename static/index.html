@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -104,35 +105,30 @@
 
         .session-item-header {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
+            gap: 2px;
+            margin-bottom: 10px;
         }
 
-        .session-number {
-            width: 28px;
-            height: 28px;
-            background: var(--bg-deep);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.85rem;
+        .session-date {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
         }
 
         .session-name {
-            padding: 4px 10px;
+            padding: 4px 12px;
             background: var(--bg-deep);
             border-radius: 8px;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             cursor: pointer;
             transition: background 0.2s;
-            max-width: 120px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            text-align: center;
         }
 
         .session-name:hover {
@@ -140,30 +136,67 @@
         }
 
         .session-rename-input {
-            padding: 4px 10px;
+            padding: 4px 12px;
             background: var(--bg-deep);
             border: 1px solid var(--accent-like);
             border-radius: 8px;
             font-family: 'DM Sans', sans-serif;
             font-weight: 600;
-            font-size: 0.85rem;
-            color: var(--text-primary);
-            width: 120px;
-            outline: none;
-        }
-
-        .session-info {
-            flex: 1;
-        }
-
-        .session-info .count {
-            font-weight: 500;
             font-size: 0.9rem;
+            color: var(--text-primary);
+            width: 160px;
+            outline: none;
+            text-align: center;
         }
 
-        .session-info .date {
-            color: var(--text-secondary);
+        .session-rename-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .session-rename-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 6px;
+            font-family: 'DM Sans', sans-serif;
             font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .session-rename-btn:hover {
+            opacity: 0.8;
+        }
+
+        .session-rename-btn.cancel {
+            background: var(--accent-skip);
+            color: white;
+        }
+
+        .session-rename-btn.save {
+            background: var(--accent-like);
+            color: var(--bg-deep);
+        }
+
+        .session-preview-wrapper {
+            position: relative;
+        }
+
+        .session-photo-count {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-primary);
         }
 
         .session-preview {
@@ -917,19 +950,38 @@
             opacity: 1;
         }
 
-        .gallery-item-delete {
+        .gallery-item-delete,
+        .gallery-item-edit {
             width: 32px;
             height: 32px;
             border-radius: 8px;
             border: none;
-            background: rgba(239, 68, 68, 0.9);
             color: white;
             font-size: 0.9rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s, transform 0.15s;
+        }
+
+        .gallery-item-delete {
+            background: rgba(239, 68, 68, 0.9);
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+        }
+
+        .gallery-item-edit {
+            background: rgba(30, 30, 30, 0.9);
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            transition: background 0.2s;
+            transform: scaleX(-1);
+        }
+
+        .gallery-item-edit:hover {
+            background: rgba(50, 50, 50, 0.9);
         }
 
         .gallery-item-delete:hover {
@@ -1045,6 +1097,375 @@
         .lightbox-action-btn:hover {
             background: rgba(255, 255, 255, 0.1);
             border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .lightbox-action-btn.delete {
+            background: rgba(239, 68, 68, 0.9);
+            border-color: rgba(239, 68, 68, 0.9);
+        }
+
+        .lightbox-action-btn.delete:hover {
+            background: rgba(239, 68, 68, 1);
+        }
+
+        .lightbox-action-btn.edit {
+            background: rgba(30, 30, 30, 0.9);
+            border-color: rgba(60, 60, 60, 0.9);
+        }
+
+        .lightbox-action-btn.edit:hover {
+            background: rgba(50, 50, 50, 1);
+        }
+
+        /* Photo Editor Modal */
+        .photo-editor {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 60px 20px 20px 20px;
+            overflow-y: auto;
+        }
+
+        .photo-editor-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .photo-editor-title {
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .photo-editor-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-editor-canvas-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .photo-editor-polaroid {
+            background: #000000;
+            padding: 12px 12px 0 12px;
+            border-radius: 4px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Fabric.js creates a wrapper div with class canvas-container */
+        .photo-editor-polaroid .canvas-container {
+            display: block !important;
+        }
+
+        .photo-editor-canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .photo-editor-caption-area {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 16px;
+            border-radius: 0 0 4px 4px;
+            box-sizing: border-box;
+        }
+
+        .photo-editor-caption-input {
+            width: 100%;
+            height: 52px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            line-height: 1.5;
+            text-align: center;
+            outline: none;
+            resize: none;
+            overflow: hidden;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .photo-editor-caption-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .photo-editor-tools {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .photo-editor-tool {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .photo-editor-tool:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .photo-editor-tool.active {
+            background: var(--accent-like);
+            border-color: var(--accent-like);
+            color: var(--bg-deep);
+        }
+
+        .photo-editor-tool.red {
+            background: rgba(239, 68, 68, 0.8);
+            border-color: rgba(239, 68, 68, 0.8);
+        }
+
+        .photo-editor-tool.red:hover {
+            background: rgba(239, 68, 68, 1);
+        }
+
+        .photo-editor-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .photo-editor-save {
+            padding: 12px 32px;
+            border-radius: 8px;
+            border: none;
+            background: var(--accent-like);
+            color: var(--bg-deep);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .photo-editor-save:hover {
+            opacity: 0.9;
+        }
+
+        .photo-editor-cancel {
+            padding: 12px 32px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: transparent;
+            color: white;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .photo-editor-cancel:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .photo-editor-toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-editor-mode-toggle {
+            display: flex;
+            gap: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 2px;
+        }
+
+        .photo-editor-mode-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .photo-editor-mode-btn:hover {
+            color: white;
+        }
+
+        .photo-editor-mode-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .photo-editor-undo-redo {
+            display: flex;
+            gap: 4px;
+        }
+
+        .photo-editor-undo-btn,
+        .photo-editor-redo-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .photo-editor-undo-btn:hover:not(:disabled),
+        .photo-editor-redo-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .photo-editor-undo-btn:disabled,
+        .photo-editor-redo-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .photo-editor-color-palette {
+            display: flex;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .photo-editor-color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .photo-editor-color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .photo-editor-color-swatch.active {
+            border-color: white;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .photo-editor-thickness-selector {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .photo-editor-thickness-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .photo-editor-thickness-slider {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .photo-editor-thickness-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .photo-editor-thickness-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .photo-editor-thickness-preview {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-editor-thickness-dot {
+            border-radius: 50%;
+            background: white;
+        }
+
+        .photo-editor-delete-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .photo-editor-delete-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.8);
+        }
+
+        .photo-editor-selection-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-left: 8px;
         }
 
         .lightbox-action-btn.delete:hover {
@@ -1340,6 +1761,64 @@
             const [finishConfirm, setFinishConfirm] = useState(false);
             const [renamingSession, setRenamingSession] = useState(null); // {id, name}
 
+            // Photo editor state
+            const [editingPhoto, setEditingPhoto] = useState(null); // {sessionId, photo}
+            const [editorCaption, setEditorCaption] = useState('');
+            const [circleColor, setCircleColor] = useState('#ef4444'); // default red
+            const [circleThickness, setCircleThickness] = useState(8); // stroke width
+            const [drawingMode, setDrawingMode] = useState('circle'); // 'circle' or 'draw'
+            const canvasRef = React.useRef(null);
+            const imageRef = React.useRef(null);
+            const fabricCanvasRef = React.useRef(null); // Fabric.js canvas instance
+            // Refs for current color/thickness/mode (used in fabric event handlers)
+            const circleColorRef = React.useRef('#ef4444');
+            const circleThicknessRef = React.useRef(8);
+            const drawingModeRef = React.useRef('circle');
+
+            // Keep refs in sync with state and update brush
+            useEffect(() => {
+                circleColorRef.current = circleColor;
+                const canvas = fabricCanvasRef.current;
+                if (canvas && canvas.freeDrawingBrush) {
+                    canvas.freeDrawingBrush.color = circleColor;
+                }
+            }, [circleColor]);
+            useEffect(() => {
+                circleThicknessRef.current = circleThickness;
+                const canvas = fabricCanvasRef.current;
+                if (canvas && canvas.freeDrawingBrush) {
+                    canvas.freeDrawingBrush.width = circleThickness;
+                }
+            }, [circleThickness]);
+            useEffect(() => {
+                drawingModeRef.current = drawingMode;
+                // Toggle Fabric.js freeDrawingMode
+                const canvas = fabricCanvasRef.current;
+                if (canvas) {
+                    if (drawingMode === 'draw') {
+                        canvas.isDrawingMode = true;
+                        canvas.freeDrawingBrush.color = circleColorRef.current;
+                        canvas.freeDrawingBrush.width = circleThicknessRef.current;
+                    } else {
+                        canvas.isDrawingMode = false;
+                    }
+                }
+            }, [drawingMode]);
+
+            // Thickness range for slider
+            const minThickness = 8;
+            const maxThickness = 24;
+
+            // Color palette options
+            const colorPalette = [
+                { color: '#ef4444', name: 'Red' },
+                { color: '#3b82f6', name: 'Blue' },
+                { color: '#22c55e', name: 'Green' },
+                { color: '#eab308', name: 'Yellow' },
+                { color: '#ffffff', name: 'White' },
+                { color: '#000000', name: 'Black' },
+            ];
+
             // Fetch browser setting on mount
             useEffect(() => {
                 fetch(`${API}/api/settings/browser`)
@@ -1489,7 +1968,7 @@
                     if (wasLiked) {
                         // Remove from liked (delete the file)
                         const filename = frames[currentIndex];
-                        fetch(`${API}/api/sessions/${sessionId}/photo/${filename}`, { method: 'DELETE' })
+                        fetch(`${API}/api/sessions/${encodeURIComponent(sessionId)}/photo/${filename}`, { method: 'DELETE' })
                             .catch(err => console.error('Failed to unlike:', err));
                         setLikedCount(prev => Math.max(0, prev - 1));
                     }
@@ -1545,13 +2024,13 @@
 
             // Export liked frames
             const handleExport = () => {
-                window.location.href = `${API}/api/export/${sessionId}`;
+                window.location.href = `${API}/api/export/${encodeURIComponent(sessionId)}`;
             };
 
             // Restart
             const handleRestart = async () => {
                 if (sessionId) {
-                    await fetch(`${API}/api/cleanup/${sessionId}`, { method: 'POST' });
+                    await fetch(`${API}/api/cleanup/${encodeURIComponent(sessionId)}`, { method: 'POST' });
                 }
                 setView('input');
                 setUrls('');
@@ -1581,7 +2060,7 @@
 
             // Download a saved session
             const handleDownloadSession = (sid) => {
-                window.location.href = `${API}/api/export/${sid}`;
+                window.location.href = `${API}/api/export/${encodeURIComponent(sid)}`;
             };
 
             // Delete a saved session
@@ -1589,27 +2068,425 @@
                 if (!confirm('Delete this collection? This cannot be undone.')) return;
 
                 try {
-                    await fetch(`${API}/api/sessions/${sid}`, { method: 'DELETE' });
+                    await fetch(`${API}/api/sessions/${encodeURIComponent(sid)}`, { method: 'DELETE' });
                     fetchSessions();
                 } catch (err) {
                     console.error('Failed to delete session:', err);
                 }
             };
 
-            // Rename a session
+            // Rename a session (actually renames the folder)
             const handleRenameSession = async (sid, newName) => {
                 try {
-                    await fetch(`${API}/api/sessions/${sid}/rename`, {
+                    const res = await fetch(`${API}/api/sessions/${encodeURIComponent(sid)}/rename`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: newName })
                     });
+                    const data = await res.json();
+
+                    if (data.success && data.new_session_id) {
+                        // Update gallery session if it's the one being renamed
+                        if (gallerySession?.session_id === sid) {
+                            setGallerySession({
+                                ...gallerySession,
+                                session_id: data.new_session_id,
+                                name: data.new_session_id
+                            });
+                        }
+                    }
+
                     fetchSessions();
                     setRenamingSession(null);
                 } catch (err) {
                     console.error('Failed to rename session:', err);
                 }
             };
+
+            // Open photo editor
+            const openEditor = (sessionId, photo) => {
+                setEditingPhoto({ sessionId, photo });
+                setEditorCaption('');
+                setEditorDrawings([]);
+                setDrawingHistory([]);
+                setCircleColor('#ef4444');
+                setLightboxIndex(null);
+            };
+
+            // Close photo editor
+            const closeEditor = () => {
+                // Dispose Fabric canvas
+                if (fabricCanvasRef.current) {
+                    fabricCanvasRef.current.dispose();
+                    fabricCanvasRef.current = null;
+                }
+                setEditingPhoto(null);
+                setEditorCaption('');
+                setCircleThickness(8);
+            };
+
+            // Redo stack for undone objects
+            const redoStackRef = React.useRef([]);
+
+            // Undo last drawing (ellipse or path)
+            const undoDrawing = () => {
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
+                const objects = canvas.getObjects().filter(o => o.type === 'ellipse' || o.type === 'path');
+                if (objects.length > 0) {
+                    const lastObj = objects[objects.length - 1];
+                    redoStackRef.current.push(lastObj.toJSON());
+                    canvas.remove(lastObj);
+                    canvas.renderAll();
+                }
+            };
+
+            // Redo last undone drawing
+            const redoDrawing = () => {
+                const canvas = fabricCanvasRef.current;
+                if (!canvas || redoStackRef.current.length === 0) return;
+                const objData = redoStackRef.current.pop();
+                fabric.util.enlivenObjects([objData], (objects) => {
+                    objects.forEach(obj => {
+                        canvas.add(obj);
+                    });
+                    canvas.renderAll();
+                });
+            };
+
+            // Clear all drawings
+            const clearDrawings = () => {
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
+                const drawings = canvas.getObjects().filter(o => o.type === 'ellipse' || o.type === 'path');
+                drawings.forEach(e => canvas.remove(e));
+                redoStackRef.current = [];
+                canvas.renderAll();
+            };
+
+            // Delete selected object
+            const deleteSelectedCircle = () => {
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
+                const active = canvas.getActiveObject();
+                if (active && active.type === 'ellipse') {
+                    canvas.remove(active);
+                    canvas.renderAll();
+                }
+            };
+
+            // Update selected circle's color
+            const updateSelectedCircleColor = (newColor) => {
+                setCircleColor(newColor);
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
+                const active = canvas.getActiveObject();
+                if (active && active.type === 'ellipse') {
+                    active.set('stroke', newColor);
+                    canvas.renderAll();
+                }
+            };
+
+            // Update selected circle's thickness
+            const updateSelectedCircleThickness = (newThickness) => {
+                setCircleThickness(newThickness);
+                const canvas = fabricCanvasRef.current;
+                if (!canvas) return;
+                const active = canvas.getActiveObject();
+                if (active && active.type === 'ellipse') {
+                    active.set('strokeWidth', newThickness);
+                    canvas.renderAll();
+                }
+            };
+
+            // Keyboard shortcuts
+            useEffect(() => {
+                if (!editingPhoto) return;
+
+                const handleKeyDown = (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                        e.preventDefault();
+                        undoDrawing();
+                    } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                        e.preventDefault();
+                        redoDrawing();
+                    } else if (e.key === 'Escape') {
+                        const canvas = fabricCanvasRef.current;
+                        if (canvas) {
+                            canvas.discardActiveObject();
+                            canvas.renderAll();
+                        }
+                    }
+                };
+
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [editingPhoto]);
+
+            // Save edited photo with black border style - simple 2-line caption
+            const saveEditedPhoto = async () => {
+                if (!editingPhoto) return;
+
+                const fabricCanvas = fabricCanvasRef.current;
+                if (!fabricCanvas) return;
+
+                // Deselect all objects to hide selection handles
+                fabricCanvas.discardActiveObject();
+                fabricCanvas.renderAll();
+
+                const canvasWidth = fabricCanvas.getWidth();
+                const canvasHeight = fabricCanvas.getHeight();
+
+                // Settings
+                const borderSize = Math.round(canvasWidth * 0.025);
+                const fontSize = Math.round(canvasWidth * 0.04);
+                const lineHeight = fontSize * 1.4;
+                const captionPadding = Math.round(canvasWidth * 0.025);
+
+                // Get fabric canvas as image
+                const fabricDataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 1 });
+
+                // Load the image and then create final output
+                const editedImg = new Image();
+                editedImg.crossOrigin = 'anonymous';
+                editedImg.onload = async () => {
+                    // Create a temporary canvas to measure text
+                    const measureCanvas = document.createElement('canvas');
+                    const measureCtx = measureCanvas.getContext('2d');
+                    measureCtx.font = `${fontSize}px Georgia, serif`;
+                    const maxTextWidth = canvasWidth - 40; // Leave margin on sides
+
+                    // Wrap text character by character to handle any input
+                    const wrapText = (text, maxWidth) => {
+                        const lines = [];
+                        let currentLine = '';
+
+                        for (const char of text.trim()) {
+                            const testLine = currentLine + char;
+                            if (measureCtx.measureText(testLine).width <= maxWidth) {
+                                currentLine = testLine;
+                            } else {
+                                if (currentLine) lines.push(currentLine);
+                                currentLine = char;
+                            }
+                        }
+                        if (currentLine) lines.push(currentLine);
+                        return lines;
+                    };
+
+                    // Wrap text and take first 2 lines
+                    let lines = wrapText(editorCaption, maxTextWidth).slice(0, 2);
+                    const hasCaption = lines.some(line => line.length > 0);
+
+                    // Calculate caption area height
+                    const captionAreaHeight = hasCaption ? (2 * lineHeight) + (captionPadding * 2) : 0;
+
+                    // Create final output canvas
+                    const finalCanvas = document.createElement('canvas');
+                    finalCanvas.width = canvasWidth + (borderSize * 2);
+                    finalCanvas.height = canvasHeight + (borderSize * 2) + captionAreaHeight;
+                    const ctx = finalCanvas.getContext('2d');
+
+                    // Fill black background
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+                    // Draw the edited image
+                    ctx.drawImage(editedImg, borderSize, borderSize, canvasWidth, canvasHeight);
+
+                    // Draw caption text - exactly as user typed it
+                    if (hasCaption) {
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = `${fontSize}px Georgia, serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+
+                        const textStartY = canvasHeight + (borderSize * 2) + captionPadding;
+                        const centerX = finalCanvas.width / 2;
+
+                        lines.forEach((line, index) => {
+                            ctx.fillText(line, centerX, textStartY + (index * lineHeight));
+                        });
+                    }
+
+                    // Convert to blob and upload
+                    finalCanvas.toBlob(async (blob) => {
+                        const formData = new FormData();
+                        formData.append('image', blob, 'edited.jpg');
+                        formData.append('session_id', editingPhoto.sessionId);
+
+                        try {
+                            const res = await fetch(`${API}/api/sessions/${encodeURIComponent(editingPhoto.sessionId)}/upload`, {
+                                method: 'POST',
+                                body: formData
+                            });
+                            const data = await res.json();
+
+                            if (data.success) {
+                                const photosRes = await fetch(`${API}/api/sessions/${encodeURIComponent(editingPhoto.sessionId)}/photos`);
+                                const photosData = await photosRes.json();
+                                setGalleryPhotos(photosData.photos || []);
+                                fetchSessions();
+                                closeEditor();
+                            }
+                        } catch (err) {
+                            console.error('Failed to save edited photo:', err);
+                        }
+                    }, 'image/jpeg', 0.95);
+                };
+                editedImg.src = fabricDataUrl;
+            };
+
+            // Initialize Fabric.js canvas when editor opens
+            useEffect(() => {
+                if (!editingPhoto || !canvasRef.current || !imageRef.current) return;
+
+                const img = imageRef.current;
+                const canvasEl = canvasRef.current;
+
+                const initFabric = () => {
+                    // Calculate display size to fit viewport while maintaining aspect ratio
+                    const imgWidth = img.naturalWidth;
+                    const imgHeight = img.naturalHeight;
+                    const maxWidth = window.innerWidth * 0.85;
+                    const maxHeight = window.innerHeight * 0.55;
+
+                    let displayWidth = imgWidth;
+                    let displayHeight = imgHeight;
+
+                    // Scale down if needed
+                    if (imgWidth > maxWidth || imgHeight > maxHeight) {
+                        const scaleX = maxWidth / imgWidth;
+                        const scaleY = maxHeight / imgHeight;
+                        const scale = Math.min(scaleX, scaleY);
+                        displayWidth = Math.round(imgWidth * scale);
+                        displayHeight = Math.round(imgHeight * scale);
+                    }
+
+                    // Dispose existing fabric canvas if any
+                    if (fabricCanvasRef.current) {
+                        fabricCanvasRef.current.dispose();
+                    }
+
+                    // Create Fabric canvas at display size
+                    const fabricCanvas = new fabric.Canvas(canvasEl, {
+                        width: displayWidth,
+                        height: displayHeight,
+                        selection: true,
+                        preserveObjectStacking: true
+                    });
+
+                    // Set background image scaled to fit
+                    fabric.Image.fromURL(img.src, (fabricImg) => {
+                        fabricImg.set({
+                            left: 0,
+                            top: 0,
+                            scaleX: displayWidth / fabricImg.width,
+                            scaleY: displayHeight / fabricImg.height,
+                            selectable: false,
+                            evented: false
+                        });
+                        fabricCanvas.setBackgroundImage(fabricImg, fabricCanvas.renderAll.bind(fabricCanvas));
+                    }, { crossOrigin: 'anonymous' });
+
+                    // Drawing mode handlers
+                    let isDrawingEllipse = false;
+                    let startPoint = null;
+                    let currentEllipse = null;
+
+                    fabricCanvas.on('mouse:down', (opt) => {
+                        if (drawingModeRef.current !== 'circle') return; // Only draw ellipses in circle mode
+                        const target = fabricCanvas.findTarget(opt.e);
+                        if (target) return; // Clicked on existing object, don't draw
+
+                        isDrawingEllipse = true;
+                        const pointer = fabricCanvas.getPointer(opt.e);
+                        startPoint = { x: pointer.x, y: pointer.y };
+
+                        currentEllipse = new fabric.Ellipse({
+                            left: pointer.x,
+                            top: pointer.y,
+                            rx: 0,
+                            ry: 0,
+                            fill: 'transparent',
+                            stroke: circleColorRef.current,
+                            strokeWidth: circleThicknessRef.current,
+                            originX: 'center',
+                            originY: 'center',
+                            selectable: true
+                        });
+                        fabricCanvas.add(currentEllipse);
+                    });
+
+                    fabricCanvas.on('mouse:move', (opt) => {
+                        if (!isDrawingEllipse || !startPoint || !currentEllipse) return;
+
+                        const pointer = fabricCanvas.getPointer(opt.e);
+                        const rx = Math.abs(pointer.x - startPoint.x) / 2;
+                        const ry = Math.abs(pointer.y - startPoint.y) / 2;
+                        const centerX = (pointer.x + startPoint.x) / 2;
+                        const centerY = (pointer.y + startPoint.y) / 2;
+
+                        currentEllipse.set({
+                            left: centerX,
+                            top: centerY,
+                            rx: rx,
+                            ry: ry
+                        });
+                        fabricCanvas.renderAll();
+                    });
+
+                    fabricCanvas.on('mouse:up', () => {
+                        if (currentEllipse) {
+                            // Remove if too small
+                            if (currentEllipse.rx < 5 || currentEllipse.ry < 5) {
+                                fabricCanvas.remove(currentEllipse);
+                            }
+                        }
+                        isDrawingEllipse = false;
+                        startPoint = null;
+                        currentEllipse = null;
+                    });
+
+                    // Update color/thickness when selection changes
+                    fabricCanvas.on('selection:created', (opt) => {
+                        const obj = opt.selected[0];
+                        if (obj && obj.type === 'ellipse') {
+                            setCircleColor(obj.stroke);
+                            setCircleThickness(obj.strokeWidth);
+                        }
+                    });
+
+                    fabricCanvas.on('selection:updated', (opt) => {
+                        const obj = opt.selected[0];
+                        if (obj && obj.type === 'ellipse') {
+                            setCircleColor(obj.stroke);
+                            setCircleThickness(obj.strokeWidth);
+                        }
+                    });
+
+                    fabricCanvasRef.current = fabricCanvas;
+                };
+
+                if (img.complete) {
+                    initFabric();
+                } else {
+                    img.onload = initFabric;
+                }
+
+                return () => {
+                    // Cleanup handled in closeEditor
+                };
+            }, [editingPhoto]);
+
+            // Update drawing color/thickness for new ellipses
+            useEffect(() => {
+                if (!fabricCanvasRef.current) return;
+                // This updates the color used for new drawings
+                // For selected objects, updateSelectedCircleColor/Thickness handles it
+            }, [circleColor, circleThickness]);
 
             // Format date for display
             const formatDate = (timestamp) => {
@@ -1625,7 +2502,7 @@
             // Open gallery for a session
             const openGallery = async (session) => {
                 try {
-                    const res = await fetch(`${API}/api/sessions/${session.session_id}/photos`);
+                    const res = await fetch(`${API}/api/sessions/${encodeURIComponent(session.session_id)}/photos`);
                     const data = await res.json();
                     setGalleryPhotos(data.photos || []);
                     setGallerySession(session);
@@ -1653,7 +2530,7 @@
 
                 try {
                     const res = await fetch(
-                        `${API}/api/sessions/${deleteConfirm.sessionId}/photo/${deleteConfirm.photo}`,
+                        `${API}/api/sessions/${encodeURIComponent(deleteConfirm.sessionId)}/photo/${deleteConfirm.photo}`,
                         { method: 'DELETE' }
                     );
                     const data = await res.json();
@@ -1736,27 +2613,46 @@
                                     >
                                         <div className="session-item-header">
                                             {renamingSession?.id === session.session_id ? (
-                                                <input
-                                                    type="text"
-                                                    className="session-rename-input"
-                                                    value={renamingSession.name}
-                                                    onChange={(e) => setRenamingSession({ ...renamingSession, name: e.target.value })}
-                                                    onKeyDown={(e) => {
-                                                        e.stopPropagation();
-                                                        if (e.key === 'Enter') {
-                                                            const nameToSave = e.target.value;
-                                                            setRenamingSession(null);
-                                                            handleRenameSession(session.session_id, nameToSave);
-                                                        }
-                                                        if (e.key === 'Escape') {
-                                                            setRenamingSession(null);
-                                                        }
-                                                    }}
-                                                    onBlur={() => setRenamingSession(null)}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    autoFocus
-                                                    placeholder="Collection name..."
-                                                />
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        className="session-rename-input"
+                                                        value={renamingSession.name}
+                                                        onChange={(e) => setRenamingSession({ ...renamingSession, name: e.target.value })}
+                                                        onKeyDown={(e) => {
+                                                            e.stopPropagation();
+                                                            if (e.key === 'Enter') {
+                                                                handleRenameSession(session.session_id, renamingSession.name);
+                                                            }
+                                                            if (e.key === 'Escape') {
+                                                                setRenamingSession(null);
+                                                            }
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        autoFocus
+                                                        placeholder="Collection name..."
+                                                    />
+                                                    <div className="session-rename-actions">
+                                                        <button
+                                                            className="session-rename-btn cancel"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setRenamingSession(null);
+                                                            }}
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                        <button
+                                                            className="session-rename-btn save"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleRenameSession(session.session_id, renamingSession.name);
+                                                            }}
+                                                        >
+                                                            Save
+                                                        </button>
+                                                    </div>
+                                                </>
                                             ) : (
                                                 <div
                                                     className="session-name"
@@ -1766,22 +2662,23 @@
                                                     }}
                                                     title="Click to rename"
                                                 >
-                                                    {session.name || `#${session.number}`}
+                                                    {session.name}
                                                 </div>
                                             )}
-                                            <div className="session-info">
-                                                <div className="count">
-                                                    {session.photo_count} photo{session.photo_count !== 1 ? 's' : ''}
-                                                </div>
-                                                <div className="date">{formatDate(session.created_at)}</div>
-                                            </div>
+                                            <div className="session-date">{formatDate(session.created_at)}</div>
                                         </div>
                                         {session.preview && (
-                                            <div className="session-preview">
-                                                <img
-                                                    src={`${API}/api/sessions/${session.session_id}/photo/${session.preview}`}
-                                                    alt="Preview"
-                                                />
+                                            <div className="session-preview-wrapper">
+                                                <div className="session-preview">
+                                                    <img
+                                                        src={`${API}/api/sessions/${encodeURIComponent(session.session_id)}/photo/${session.preview}`}
+                                                        alt="Preview"
+                                                    />
+                                                </div>
+                                                <div className="session-photo-count">
+                                                    <span>🖼</span>
+                                                    <span>{session.photo_count}</span>
+                                                </div>
                                             </div>
                                         )}
                                         <div className="session-actions">
@@ -1829,7 +2726,7 @@
                                             ←
                                         </button>
                                         <div className="gallery-title">
-                                            <h2>{gallerySession.name || `Collection #${gallerySession.number}`}</h2>
+                                            <h2>{gallerySession.name}</h2>
                                             <p>{galleryPhotos.length} photo{galleryPhotos.length !== 1 ? 's' : ''}</p>
                                         </div>
                                         <button
@@ -1848,10 +2745,16 @@
                                                 onClick={() => setLightboxIndex(index)}
                                             >
                                                 <img
-                                                    src={`${API}/api/sessions/${gallerySession.session_id}/photo/${photo}`}
+                                                    src={`${API}/api/sessions/${encodeURIComponent(gallerySession.session_id)}/photo/${photo}`}
                                                     alt={`Photo ${index + 1}`}
                                                 />
                                                 <div className="gallery-item-overlay">
+                                                    <button
+                                                        className="gallery-item-edit"
+                                                        onClick={(e) => { e.stopPropagation(); openEditor(gallerySession.session_id, photo); }}
+                                                    >
+                                                        ✎
+                                                    </button>
                                                     <button
                                                         className="gallery-item-delete"
                                                         onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
@@ -1963,7 +2866,7 @@
 
                             <img
                                 className="lightbox-image"
-                                src={`${API}/api/sessions/${gallerySession.session_id}/photo/${galleryPhotos[lightboxIndex]}`}
+                                src={`${API}/api/sessions/${encodeURIComponent(gallerySession.session_id)}/photo/${galleryPhotos[lightboxIndex]}`}
                                 alt={`Photo ${lightboxIndex + 1}`}
                                 onClick={(e) => e.stopPropagation()}
                             />
@@ -1983,10 +2886,16 @@
 
                             <div className="lightbox-actions">
                                 <button
+                                    className="lightbox-action-btn edit"
+                                    onClick={(e) => { e.stopPropagation(); openEditor(gallerySession.session_id, galleryPhotos[lightboxIndex]); }}
+                                >
+                                    Edit
+                                </button>
+                                <button
                                     className="lightbox-action-btn delete"
                                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(galleryPhotos[lightboxIndex]); }}
                                 >
-                                    Delete Photo
+                                    Delete
                                 </button>
                             </div>
                         </div>
@@ -2044,6 +2953,119 @@
                                         I'm Done
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Photo Editor Modal */}
+                    {editingPhoto && (
+                        <div className="photo-editor">
+                            <div className="photo-editor-header">
+                                <span className="photo-editor-title">Edit Photo</span>
+                                <button className="photo-editor-close" onClick={closeEditor}>✕</button>
+                            </div>
+
+                            <div className="photo-editor-canvas-container">
+                                <img
+                                    ref={imageRef}
+                                    src={`${API}/api/sessions/${encodeURIComponent(editingPhoto.sessionId)}/photo/${editingPhoto.photo}`}
+                                    alt="Editing"
+                                    style={{ display: 'none' }}
+                                    crossOrigin="anonymous"
+                                />
+                                <div className="photo-editor-polaroid">
+                                    <canvas
+                                        ref={canvasRef}
+                                        className="photo-editor-canvas"
+                                    />
+                                    <div className="photo-editor-caption-area">
+                                        <textarea
+                                            className="photo-editor-caption-input"
+                                            placeholder="Add a caption..."
+                                            value={editorCaption}
+                                            onChange={(e) => setEditorCaption(e.target.value)}
+                                            rows={2}
+                                            maxLength={140}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="photo-editor-tools">
+                                <div className="photo-editor-toolbar">
+                                    <div className="photo-editor-mode-toggle">
+                                        <button
+                                            className={`photo-editor-mode-btn ${drawingMode === 'draw' ? 'active' : ''}`}
+                                            onClick={() => setDrawingMode('draw')}
+                                            title="Freehand Draw"
+                                        >
+                                            Draw
+                                        </button>
+                                        <button
+                                            className={`photo-editor-mode-btn ${drawingMode === 'circle' ? 'active' : ''}`}
+                                            onClick={() => setDrawingMode('circle')}
+                                            title="Draw Circle/Ellipse"
+                                        >
+                                            Circle
+                                        </button>
+                                    </div>
+                                    <div className="photo-editor-undo-redo">
+                                        <button
+                                            className="photo-editor-undo-btn"
+                                            onClick={undoDrawing}
+                                            title="Undo (Ctrl+Z)"
+                                        >
+                                            ↩
+                                        </button>
+                                        <button
+                                            className="photo-editor-redo-btn"
+                                            onClick={redoDrawing}
+                                            title="Redo (Ctrl+Y)"
+                                        >
+                                            ↪
+                                        </button>
+                                    </div>
+                                    <div className="photo-editor-color-palette">
+                                        {colorPalette.map((item) => (
+                                            <div
+                                                key={item.color}
+                                                className={`photo-editor-color-swatch ${circleColor === item.color ? 'active' : ''}`}
+                                                style={{ backgroundColor: item.color }}
+                                                onClick={() => updateSelectedCircleColor(item.color)}
+                                                title={item.name}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className="photo-editor-thickness-selector">
+                                        <span className="photo-editor-thickness-label">Size</span>
+                                        <input
+                                            type="range"
+                                            className="photo-editor-thickness-slider"
+                                            min={minThickness}
+                                            max={maxThickness}
+                                            value={circleThickness}
+                                            onChange={(e) => updateSelectedCircleThickness(parseInt(e.target.value))}
+                                        />
+                                        <div className="photo-editor-thickness-preview">
+                                            <div
+                                                className="photo-editor-thickness-dot"
+                                                style={{ width: circleThickness, height: circleThickness }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button className="photo-editor-tool" onClick={clearDrawings}>
+                                        Clear All
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="photo-editor-actions">
+                                <button className="photo-editor-cancel" onClick={closeEditor}>
+                                    Cancel
+                                </button>
+                                <button className="photo-editor-save" onClick={saveEditedPhoto}>
+                                    Save as Copy
+                                </button>
                             </div>
                         </div>
                     )}

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(gh auth login:*)"
+      "Bash(gh auth login:*)",
+      "Bash(dir /b \"C:\\\\Users\\\\Rayan\\\\Desktop\\\\reel-curator\\\\liked\")"
     ],
     "deny": [],
     "ask": []
