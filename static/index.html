@@ -1117,6 +1117,17 @@
             background: rgba(50, 50, 50, 1);
         }
 
+        .lightbox-action-btn.download {
+            background: rgba(34, 197, 94, 0.9);
+            border-color: rgba(34, 197, 94, 0.9);
+            color: var(--bg-deep);
+            font-weight: 600;
+        }
+
+        .lightbox-action-btn.download:hover {
+            background: rgba(34, 197, 94, 1);
+        }
+
         /* Photo Editor Modal */
         .photo-editor {
             position: fixed;
@@ -1765,14 +1776,14 @@
             const [editingPhoto, setEditingPhoto] = useState(null); // {sessionId, photo}
             const [editorCaption, setEditorCaption] = useState('');
             const [circleColor, setCircleColor] = useState('#ef4444'); // default red
-            const [circleThickness, setCircleThickness] = useState(8); // stroke width
+            const [circleThickness, setCircleThickness] = useState(4); // stroke width
             const [drawingMode, setDrawingMode] = useState('circle'); // 'circle' or 'draw'
             const canvasRef = React.useRef(null);
             const imageRef = React.useRef(null);
             const fabricCanvasRef = React.useRef(null); // Fabric.js canvas instance
             // Refs for current color/thickness/mode (used in fabric event handlers)
             const circleColorRef = React.useRef('#ef4444');
-            const circleThicknessRef = React.useRef(8);
+            const circleThicknessRef = React.useRef(4);
             const drawingModeRef = React.useRef('circle');
 
             // Keep refs in sync with state and update brush
@@ -1806,8 +1817,8 @@
             }, [drawingMode]);
 
             // Thickness range for slider
-            const minThickness = 8;
-            const maxThickness = 24;
+            const minThickness = 4;
+            const maxThickness = 12;
 
             // Color palette options
             const colorPalette = [
@@ -2103,6 +2114,16 @@
                 }
             };
 
+            // Download a single photo
+            const downloadPhoto = (sessionId, photo) => {
+                const link = document.createElement('a');
+                link.href = `${API}/api/sessions/${encodeURIComponent(sessionId)}/photo/${encodeURIComponent(photo)}`;
+                link.download = photo;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
             // Open photo editor
             const openEditor = (sessionId, photo) => {
                 setEditingPhoto({ sessionId, photo });
@@ -2120,7 +2141,7 @@
                 }
                 setEditingPhoto(null);
                 setEditorCaption('');
-                setCircleThickness(8);
+                setCircleThickness(4);
             };
 
             // Redo stack for undone objects
@@ -2234,17 +2255,23 @@
                 fabricCanvas.discardActiveObject();
                 fabricCanvas.renderAll();
 
-                const canvasWidth = fabricCanvas.getWidth();
-                const canvasHeight = fabricCanvas.getHeight();
+                const displayWidth = fabricCanvas.getWidth();
+                const displayHeight = fabricCanvas.getHeight();
 
-                // Settings
+                // Export at original image resolution (display canvas is scaled down to fit viewport)
+                const originalImg = imageRef.current;
+                const multiplier = originalImg ? originalImg.naturalWidth / displayWidth : 1;
+                const canvasWidth = Math.round(displayWidth * multiplier);
+                const canvasHeight = Math.round(displayHeight * multiplier);
+
+                // Settings — based on natural size so they look right at full resolution
                 const borderSize = Math.round(canvasWidth * 0.025);
                 const fontSize = Math.round(canvasWidth * 0.04);
                 const lineHeight = fontSize * 1.4;
                 const captionPadding = Math.round(canvasWidth * 0.025);
 
-                // Get fabric canvas as image
-                const fabricDataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 1 });
+                // Get fabric canvas as image at full resolution
+                const fabricDataUrl = fabricCanvas.toDataURL({ format: 'png', quality: 1, multiplier });
 
                 // Load the image and then create final output
                 const editedImg = new Image();
@@ -2348,8 +2375,8 @@
                     // Calculate display size to fit viewport while maintaining aspect ratio
                     const imgWidth = img.naturalWidth;
                     const imgHeight = img.naturalHeight;
-                    const maxWidth = window.innerWidth * 0.85;
-                    const maxHeight = window.innerHeight * 0.55;
+                    const maxWidth = window.innerWidth * 0.83;
+                    const maxHeight = window.innerHeight * 0.70;
 
                     let displayWidth = imgWidth;
                     let displayHeight = imgHeight;
@@ -2883,6 +2910,12 @@
                             </div>
 
                             <div className="lightbox-actions">
+                                <button
+                                    className="lightbox-action-btn download"
+                                    onClick={(e) => { e.stopPropagation(); downloadPhoto(gallerySession.session_id, galleryPhotos[lightboxIndex]); }}
+                                >
+                                    Download
+                                </button>
                                 <button
                                     className="lightbox-action-btn edit"
                                     onClick={(e) => { e.stopPropagation(); openEditor(gallerySession.session_id, galleryPhotos[lightboxIndex]); }}

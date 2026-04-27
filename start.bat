@@ -33,6 +33,17 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Open browser after a short delay, then start the server
-start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:5000"
+:: Locate Firefox
+set "FIREFOX_PATH="
+if exist "%ProgramFiles%\Mozilla Firefox\firefox.exe" set "FIREFOX_PATH=%ProgramFiles%\Mozilla Firefox\firefox.exe"
+if exist "%ProgramFiles(x86)%\Mozilla Firefox\firefox.exe" set "FIREFOX_PATH=%ProgramFiles(x86)%\Mozilla Firefox\firefox.exe"
+
+:: Open Firefox after a short delay (fall back to default browser if Firefox is missing)
+if defined FIREFOX_PATH (
+    start "" cmd /c "timeout /t 2 /nobreak >nul && start """" ""%FIREFOX_PATH%"" http://localhost:5000"
+) else (
+    echo Firefox not found, using default browser.
+    start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:5000"
+)
+
 python backend/app.py
