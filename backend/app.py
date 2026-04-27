@@ -4,18 +4,20 @@ Downloads Instagram reels, extracts key frames based on scene changes,
 and serves them for the swipe UI.
 """
 
-import os
+import json
+import re
 import shutil
+import subprocess
+import threading
 import uuid
 import zipfile
+from datetime import datetime
 from pathlib import Path
+
+import cv2
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
-import subprocess
-import cv2
-import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-import threading
 
 app = Flask(__name__, static_folder='../static')
 CORS(app)
@@ -41,16 +43,14 @@ def load_settings():
     """Load settings from file."""
     if SETTINGS_FILE.exists():
         try:
-            import json
             with open(SETTINGS_FILE, 'r') as f:
                 return json.load(f)
-        except:
+        except (json.JSONDecodeError, OSError):
             pass
     return {}
 
 def save_settings(settings):
     """Save settings to file."""
-    import json
     with open(SETTINGS_FILE, 'w') as f:
         json.dump(settings, f)
 
@@ -61,13 +61,11 @@ cookie_browser_lock = threading.Lock()
 
 def generate_session_id():
     """Generate a human-readable session ID based on timestamp."""
-    from datetime import datetime
     return datetime.now().strftime("%b-%d_%H-%M-%S")
 
 
 def sanitize_folder_name(name: str) -> str:
     """Sanitize a string to be safe for use as a folder name."""
-    import re
     # Only remove characters that are invalid in Windows folder names: < > : " / \ | ? *
     sanitized = re.sub(r'[<>:"/\\|?*]', '', name)
     # Remove leading/trailing spaces and dots (Windows doesn't allow trailing dots/spaces)
@@ -663,7 +661,6 @@ def upload_edited_photo(session_id: str):
     image = request.files['image']
 
     # Generate unique filename
-    from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"edited_{timestamp}.jpg"
     filepath = liked_session_dir / filename
